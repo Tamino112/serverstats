@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ServerStats — Linux Systemmonitor</title>
+  <meta name="description" content="Moderne Echtzeit-Übersicht für Linux-Server: CPU, Arbeitsspeicher, Temperaturen, verbaute Hardware, Speicher, Netzwerk und Prozesse." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script>
+    (function () {
+      var saved = localStorage.getItem("serverstats-theme");
+      var theme = saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+</head>
+<body>
+  <header class="topbar" id="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="status-dot" id="conn-dot" aria-hidden="true"></span>
+        <span class="brand-name" id="hdr-hostname">Server</span>
+        <span class="brand-sep" aria-hidden="true">/</span>
+        <span class="brand-sub" id="hdr-os">Linux</span>
+      </div>
+
+      <nav class="nav-pills" aria-label="Navigation">
+        <a href="#overview" class="nav-pill" data-i18n="nav.overview">Übersicht</a>
+        <a href="#sensors" class="nav-pill" data-i18n="nav.sensors">Temperaturen</a>
+        <a href="#hardware" class="nav-pill" data-i18n="nav.hardware">Hardware</a>
+        <a href="#storage-net" class="nav-pill" data-i18n="nav.storage">Speicher &amp; Netz</a>
+        <a href="#processes" class="nav-pill" data-i18n="nav.processes">Prozesse</a>
+      </nav>
+
+      <div class="topbar-actions">
+        <span class="live-chip mono" id="conn-label">Live · 2s</span>
+        <button type="button" class="icon-btn mono" id="lang-toggle" title="Sprache wechseln">DE</button>
+        <button type="button" class="icon-btn" id="theme-toggle" aria-label="Farbschema wechseln" title="Hell / Dunkel">
+          <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+          </svg>
+          <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <!-- Hero Identity Strip -->
+    <section id="overview" class="hero-strip" aria-label="Serverübersicht">
+      <div class="hero-left">
+        <h1 class="hero-title" id="hero-hostname">Linux Server</h1>
+        <p class="hero-subtitle" id="hero-specs">Lade Hardware-Informationen…</p>
+      </div>
+      <div class="hero-right mono">
+        <div class="hero-stat">
+          <span class="hero-stat-label" data-i18n="hero.uptime">Laufzeit</span>
+          <span class="hero-stat-val" id="hero-uptime">—</span>
+        </div>
+        <div class="hero-divider" aria-hidden="true"></div>
+        <div class="hero-stat">
+          <span class="hero-stat-label" data-i18n="hero.load">Load Avg</span>
+          <span class="hero-stat-val" id="hero-load">—</span>
+        </div>
+        <div class="hero-divider" aria-hidden="true"></div>
+        <div class="hero-stat">
+          <span class="hero-stat-label" data-i18n="hero.ip">IP-Adresse</span>
+          <span class="hero-stat-val" id="hero-ip">—</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1. Primary Metric Cards -->
+    <section class="kpi-grid" aria-label="Echtzeit-Kennzahlen">
+      <!-- CPU -->
+      <article class="card kpi-card">
+        <div class="kpi-top">
+          <div class="kpi-label-group">
+            <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+              <rect x="9" y="9" width="6" height="6"></rect>
+              <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"></path>
+            </svg>
+            <span class="kpi-label" data-i18n="kpi.cpu">Prozessor</span>
+          </div>
+          <span class="kpi-pill mono" id="kpi-cpu-freq">—</span>
+        </div>
+
+        <div class="kpi-figure-row">
+          <div class="kpi-figure mono">
+            <span id="kpi-cpu-val">—</span><span class="kpi-unit">%</span>
+          </div>
+          <div class="sparkline-box" id="spark-cpu" aria-hidden="true"></div>
+        </div>
+
+        <div class="progress-rail" aria-hidden="true">
+          <div class="progress-fill fill-cpu" id="bar-cpu-user" style="width:0%"></div>
+          <div class="progress-fill fill-sys" id="bar-cpu-sys" style="width:0%"></div>
+          <div class="progress-fill fill-warn" id="bar-cpu-io" style="width:0%"></div>
+        </div>
+
+        <div class="kpi-footer mono">
+          <span id="kpi-cpu-breakdown">User — · Sys —</span>
+          <span id="kpi-cpu-tasks">—</span>
+        </div>
+      </article>
+
+      <!-- RAM -->
+      <article class="card kpi-card">
+        <div class="kpi-top">
+          <div class="kpi-label-group">
+            <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path>
+              <path d="M7 18v2M11 18v2M15 18v2M19 18v2M7 10v4M12 10v4M17 10v4"></path>
+            </svg>
+            <span class="kpi-label" data-i18n="kpi.memory">Arbeitsspeicher</span>
+          </div>
+          <span class="kpi-pill mono" id="kpi-mem-total">—</span>
+        </div>
+
+        <div class="kpi-figure-row">
+          <div class="kpi-figure mono">
+            <span id="kpi-mem-val">—</span><span class="kpi-unit">%</span>
+          </div>
+          <div class="sparkline-box" id="spark-mem" aria-hidden="true"></div>
+        </div>
+
+        <div class="progress-rail" aria-hidden="true">
+          <div class="progress-fill fill-mem" id="bar-mem-used" style="width:0%"></div>
+          <div class="progress-fill fill-soft" id="bar-mem-cached" style="width:0%"></div>
+        </div>
+
+        <div class="kpi-footer mono">
+          <span id="kpi-mem-detail">—</span>
+          <span id="kpi-swap-detail">Swap —</span>
+        </div>
+      </article>
+
+      <!-- Temperature -->
+      <article class="card kpi-card">
+        <div class="kpi-top">
+          <div class="kpi-label-group">
+            <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"></path>
+            </svg>
+            <span class="kpi-label" data-i18n="kpi.temp">Temperatur</span>
+          </div>
+          <span class="kpi-pill mono" id="kpi-temp-source">—</span>
+        </div>
+
+        <div class="kpi-figure-row">
+          <div class="kpi-figure mono" id="kpi-temp-wrap">
+            <span id="kpi-temp-val">—</span><span class="kpi-unit" id="kpi-temp-unit">°C</span>
+          </div>
+          <div class="sparkline-box" id="spark-temp" aria-hidden="true"></div>
+        </div>
+
+        <div class="progress-rail" aria-hidden="true">
+          <div class="progress-fill fill-ok" id="bar-temp" style="width:0%"></div>
+        </div>
+
+        <div class="kpi-footer mono">
+          <span id="kpi-temp-label">—</span>
+          <span id="kpi-temp-extra">—</span>
+        </div>
+      </article>
+
+      <!-- Network & Disk I/O -->
+      <article class="card kpi-card">
+        <div class="kpi-top">
+          <div class="kpi-label-group">
+            <svg class="ui-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14M12 5l7 7-7 7"></path>
+            </svg>
+            <span class="kpi-label" data-i18n="kpi.io">Netzwerk &amp; I/O</span>
+          </div>
+          <span class="kpi-pill mono" id="kpi-net-iface">—</span>
+        </div>
+
+        <div class="io-matrix mono">
+          <div class="io-metric">
+            <span class="io-tag" data-i18n="kpi.net_rx">Download</span>
+            <span class="io-num" id="kpi-net-rx">—</span>
+          </div>
+          <div class="io-metric">
+            <span class="io-tag" data-i18n="kpi.net_tx">Upload</span>
+            <span class="io-num" id="kpi-net-tx">—</span>
+          </div>
+          <div class="io-metric">
+            <span class="io-tag" data-i18n="kpi.disk_r">Disk Lesen</span>
+            <span class="io-num" id="kpi-disk-r">—</span>
+          </div>
+          <div class="io-metric">
+            <span class="io-tag" data-i18n="kpi.disk_w">Disk Schreiben</span>
+            <span class="io-num" id="kpi-disk-w">—</span>
+          </div>
+        </div>
+
+        <div class="kpi-footer mono">
+          <span id="kpi-net-speed">—</span>
+          <span id="kpi-net-total">—</span>
+        </div>
+      </article>
+    </section>
+
+    <!-- 2. Smooth Spline Telemetry Charts -->
+    <section class="charts-grid" aria-label="Verlaufsdiagramme">
+      <article class="card chart-card">
+        <div class="card-head">
+          <div>
+            <h2 class="card-title" data-i18n="chart.cpu_mem_title">Auslastungsverlauf</h2>
+            <p class="card-sub" data-i18n="chart.cpu_mem_desc">Echtzeit-Verlauf von Prozessor und Arbeitsspeicher</p>
+          </div>
+          <div class="legend mono">
+            <span class="legend-chip"><i class="dot dot-cpu"></i>CPU <strong id="leg-cpu">—</strong></span>
+            <span class="legend-chip"><i class="dot dot-mem"></i>RAM <strong id="leg-mem">—</strong></span>
+          </div>
+        </div>
+        <div class="chart-stage" id="chart-cpu-mem"></div>
+      </article>
+
+      <article class="card chart-card">
+        <div class="card-head">
+          <div>
+            <h2 class="card-title" id="secondary-chart-title" data-i18n="chart.temp_title">Temperaturverlauf</h2>
+            <p class="card-sub" id="secondary-chart-desc" data-i18n="chart.temp_desc">Primärer Prozessor-Sensor in °C</p>
+          </div>
+          <div class="segmented" role="tablist" aria-label="Diagramm wechseln">
+            <button type="button" class="seg-btn active" data-chart="temp" role="tab" aria-selected="true" data-i18n="tab.temp">Temperatur</button>
+            <button type="button" class="seg-btn" data-chart="net" role="tab" aria-selected="false" data-i18n="tab.net">Netzwerk</button>
+            <button type="button" class="seg-btn" data-chart="disk" role="tab" aria-selected="false" data-i18n="tab.disk">Disk I/O</button>
+          </div>
+        </div>
+        <div class="chart-stage" id="chart-secondary"></div>
+      </article>
+    </section>
+
+    <!-- 3. Temperatures, Fans & Power -->
+    <section id="sensors" class="card" aria-label="Temperaturen und Sensoren">
+      <div class="card-head">
+        <div>
+          <h2 class="card-title" data-i18n="sensors.title">Temperaturen &amp; Kühlung</h2>
+          <p class="card-sub" data-i18n="sensors.desc">Alle erkannten Hardware-Sensoren via lm-sensors, sysfs und GPU-Treiber</p>
+        </div>
+        <div class="chip-bar" id="sensor-category-tabs"></div>
+      </div>
+
+      <div id="sensors-content"></div>
+
+      <div id="aux-sensors-row" class="aux-strip" hidden>
+        <div id="fans-block" class="aux-group" hidden>
+          <span class="aux-label" data-i18n="sensors.fans">Lüfter</span>
+          <div class="aux-pills" id="fans-list"></div>
+        </div>
+        <div id="power-block" class="aux-group" hidden>
+          <span class="aux-label" data-i18n="sensors.power">Leistung</span>
+          <div class="aux-pills" id="power-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. CPU Cores & System Hardware -->
+    <section id="hardware" class="split-grid" aria-label="Prozessorkerne und verbaute Hardware">
+      <article class="card">
+        <div class="card-head">
+          <div>
+            <h2 class="card-title" data-i18n="cpu.cores_title">Prozessorkerne</h2>
+            <p class="card-sub mono" id="cpu-model-subtitle">—</p>
+          </div>
+          <span class="kpi-pill mono" id="cpu-cores-badge">—</span>
+        </div>
+        <div class="cores-grid" id="cores-grid"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div>
+            <h2 class="card-title" data-i18n="hw.title">Verbaute Hardware &amp; System</h2>
+            <p class="card-sub" data-i18n="hw.desc">Erkannte Komponenten, Mainboard und Betriebssystem</p>
+          </div>
+          <button type="button" class="soft-btn" id="refresh-hw-btn" data-i18n="hw.refresh">Neu einlesen</button>
+        </div>
+        <dl class="spec-grid" id="hw-spec-list"></dl>
+        <div id="gpu-live-wrap" class="gpu-live-box" hidden></div>
+      </article>
+    </section>
+
+    <!-- 5. Filesystems & Network Interfaces -->
+    <section id="storage-net" class="split-grid" aria-label="Dateisysteme und Netzwerk">
+      <article class="card">
+        <div class="card-head">
+          <div>
+            <h2 class="card-title" data-i18n="storage.title">Speicher &amp; Dateisysteme</h2>
+            <p class="card-sub" data-i18n="storage.desc">Eingehängte Partitionen und freier Platz</p>
+          </div>
+          <span class="kpi-pill mono" id="storage-summary">—</span>
+        </div>
+        <div class="fs-list" id="fs-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div>
+            <h2 class="card-title" data-i18n="net.title">Netzwerk-Schnittstellen</h2>
+            <p class="card-sub" data-i18n="net.desc">Adapter, IP-Adressen und aktueller Durchsatz</p>
+          </div>
+          <label class="toggle-check">
+            <input type="checkbox" id="toggle-virtual-net" />
+            <span data-i18n="net.show_virtual">Virtuelle</span>
+          </label>
+        </div>
+        <div class="net-list" id="net-list"></div>
+      </article>
+    </section>
+
+    <!-- 6. Running Processes -->
+    <section id="processes" class="card" aria-label="Laufende Prozesse">
+      <div class="card-head">
+        <div>
+          <h2 class="card-title" data-i18n="proc.title">Aktive Prozesse</h2>
+          <p class="card-sub" data-i18n="proc.desc">Sortierbare Übersicht nach CPU-Last und Arbeitsspeicher</p>
+        </div>
+        <div class="search-wrap">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.3-4.3"></path>
+          </svg>
+          <input type="search" id="proc-search" class="search-input" placeholder="Prozess oder Benutzer suchen…" aria-label="Prozesse filtern" />
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table class="proc-table">
+          <thead>
+            <tr>
+              <th class="sortable num" data-sort="pid">PID</th>
+              <th class="sortable" data-sort="name" data-i18n="proc.name">Prozess</th>
+              <th class="sortable" data-sort="user" data-i18n="proc.user">Benutzer</th>
+              <th data-i18n="proc.state">Status</th>
+              <th class="sortable num active-sort" data-sort="cpu_pct">CPU %</th>
+              <th class="sortable num" data-sort="mem_bytes" data-i18n="proc.mem">RAM</th>
+              <th class="sortable num" data-sort="mem_pct">RAM %</th>
+            </tr>
+          </thead>
+          <tbody id="proc-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner mono">
+      <span id="footer-host">ServerStats</span>
+      <span id="footer-updated">—</span>
+    </div>
+  </footer>
+
+  <div class="chart-tooltip mono" id="chart-tooltip" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>

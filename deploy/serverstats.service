@@ -1,0 +1,17 @@
+[Unit]
+Description=ServerStats — Linux Server Telemetry Web UI
+After=network-online.target lm-sensors.service lm_sensors.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/serverstats
+EnvironmentFile=-/etc/serverstats.env
+ExecStart=/usr/bin/python3 /opt/serverstats/run.py
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
